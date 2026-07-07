@@ -1,0 +1,12 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: raritan-redfish-exporter
+  description: Raritan PDU (PX2/PX3/PX4) の Redfish API を叩く Prometheus exporter
+  annotations:
+    github.com/project-slug: enkunkun/raritan-redfish-exporter
+spec:
+  type: service
+  lifecycle: production
+  owner: user:default/guest
+  system: homelab
