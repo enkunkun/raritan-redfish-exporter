@@ -31,7 +31,7 @@ All metrics share the labels `host`, `circuit_type` (`Mains` | `Branches` |
 | `raritan_rated_current_amps` | Nameplate rated current |
 | `raritan_circuit_health` | 1 if `Status.Health == OK` |
 | `raritan_outlet_powered` | 1 if `PowerState == On` (outlets only) |
-| `raritan_scrape_success` | 1 if the last poll cycle succeeded |
+| `raritan_scrape_success` | 1 if the last poll cycle completed without errors, 0 if any circuit collection failed |
 | `raritan_scrape_duration_seconds` | Duration of the last poll cycle |
 | `raritan_scrape_attempts_total` | Counter of `ok` / `error` attempts |
 
@@ -90,6 +90,14 @@ Raritan firmware 4.x returns a malformed schema-like body when an HTTP/2
 client requests Redfish endpoints without `Accept-Encoding: gzip`. The
 exporter always sends that header, which makes the firmware return valid
 JSON.
+
+## Development
+
+```sh
+uv venv .venv
+uv pip install --python .venv/bin/python -r requirements-dev.txt
+.venv/bin/pytest
+```
 
 ## License
 

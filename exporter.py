@@ -106,27 +106,60 @@ def scrape_collection(path: str, kind: str) -> int:
     return count
 
 
+CIRCUIT_TYPES = (("Mains", "Mains"), ("Branches", "Branches"), ("Outlets", "Outlets"))
+
+
+def scrape_circuit_types(pdu_path: str) -> tuple[int, int, int]:
+    ok = skipped = failed = 0
+    for kind, suffix in CIRCUIT_TYPES:
+        path = f"{pdu_path}/{suffix}"
+        try:
+            n = scrape_collection(path, kind)
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                log.debug("%s not present on this PDU", path)
+                skipped += 1
+            else:
+                log.error("failed to scrape %s: %s", path, e)
+                failed += 1
+        except Exception as e:
+            log.error("failed to scrape %s: %s", path, e)
+            failed += 1
+        else:
+            log.debug("scraped %s: %d members", path, n)
+            ok += 1
+    return ok, skipped, failed
+
+
 def scrape_once() -> None:
     started = time.monotonic()
     try:
         pdus = fetch("/PowerEquipment/RackPDUs")
-        for pdu_path in members(pdus):
-            for kind, suffix in (("Mains", "Mains"), ("Branches", "Branches"), ("Outlets", "Outlets")):
-                try:
-                    n = scrape_collection(f"{pdu_path}/{suffix}", kind)
-                    log.debug("scraped %s: %d members", kind, n)
-                except requests.HTTPError as e:
-                    if e.response is not None and e.response.status_code == 404:
-                        log.debug("%s not present on this PDU", suffix)
-                    else:
-                        raise
+        pdu_paths = list(members(pdus))
+        ok = skipped = failed = 0
+        for pdu_path in pdu_paths:
+            n_ok, n_skipped, n_failed = scrape_circuit_types(pdu_path)
+            ok += n_ok
+            skipped += n_skipped
+            failed += n_failed
+        if failed:
+            scrape_total.labels(HOST, "error").inc()
+            scrape_ok.labels(HOST).set(0)
+            log.error(
+                "scrape cycle done: pdus=%d ok=%d skipped=%d failed=%d",
+                len(pdu_paths), ok, skipped, failed,
+            )
+        else:
+            scrape_total.labels(HOST, "ok").inc()
+            scrape_ok.labels(HOST).set(1)
+            log.info(
+                "scrape cycle done: pdus=%d ok=%d skipped=%d failed=%d",
+                len(pdu_paths), ok, skipped, failed,
+            )
     except Exception as e:
         scrape_total.labels(HOST, "error").inc()
         scrape_ok.labels(HOST).set(0)
         log.error("scrape failed: %s", e)
-    else:
-        scrape_total.labels(HOST, "ok").inc()
-        scrape_ok.labels(HOST).set(1)
     finally:
         scrape_seconds.labels(HOST).set(time.monotonic() - started)
 
